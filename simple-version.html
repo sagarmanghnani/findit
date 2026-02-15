@@ -56,12 +56,29 @@
   <script>
     let items = JSON.parse(localStorage.getItem('findit_items') || '[]');
     let recognition = null;
+    let isListening = false;
 
     // Initialize speech recognition
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       recognition = new SpeechRecognition();
       recognition.lang = 'en-US';
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      
+      // Auto-stop after 10 seconds
+      recognition.onstart = () => {
+        isListening = true;
+        setTimeout(() => {
+          if (isListening && recognition) {
+            recognition.stop();
+          }
+        }, 10000);
+      };
+      
+      recognition.onend = () => {
+        isListening = false;
+      };
     }
 
     function speak(text) {
@@ -71,11 +88,20 @@
       }
     }
 
+    function correctWords(text) {
+      return text
+        .replace(/\bdraw\b/gi, 'drawer')
+        .replace(/\bdraws\b/gi, 'drawers')
+        .replace(/\bsaw\b/gi, 'drawer');
+    }
+
     function parseLog(text) {
-      const lower = text.toLowerCase()
-        .replace(/^(i |i'm |the |put |placed |left )/g, '');
+      const corrected = correctWords(text);
+      const lower = corrected.toLowerCase()
+        .replace(/^(i |i'm |i just |the |put |placed |left |my )/g, '')
+        .replace(/(the |a |an |my )/g, '');
       
-      const words = [' in ', ' at ', ' on '];
+      const words = [' in the ', ' in my ', ' in ', ' at the ', ' at ', ' on the ', ' on '];
       for (const word of words) {
         if (lower.includes(word)) {
           const parts = lower.split(word);
@@ -94,15 +120,20 @@
       }
 
       recognition.onresult = (e) => {
-        const text = e.results[0][0].transcript;
-        const parsed = parseLog(text);
-        if (parsed) {
-          saveItem(parsed.item, parsed.location);
-          speak(`Saved ${parsed.item} in ${parsed.location}`);
-        } else {
-          alert('Could not understand. Try: "Put keys in drawer"');
+        const results = e.results[e.results.length - 1];
+        if (results.isFinal) {
+          const text = results[0].transcript;
+          const parsed = parseLog(text);
+          if (parsed) {
+            saveItem(parsed.item, parsed.location);
+            speak(`Saved ${parsed.item} in ${parsed.location}`);
+          } else {
+            alert('Could not understand. Try: "I put my keys in the drawer"');
+          }
+          recognition.stop();
         }
       };
+      alert('Speak now! Say naturally: "I just put my keys in the kitchen drawer"');
       recognition.start();
     }
 
@@ -114,13 +145,20 @@
       }
 
       recognition.onresult = (e) => {
-        const text = e.results[0][0].transcript
-          .toLowerCase()
-          .replace(/^(where |find |locate |where's )/g, '')
-          .replace(/(my |the |\?)/g, '')
-          .trim();
-        searchItem(text);
+        const results = e.results[e.results.length - 1];
+        if (results.isFinal) {
+          const text = results[0].transcript;
+          const corrected = correctWords(text);
+          const term = corrected
+            .toLowerCase()
+            .replace(/^(where |find |locate |where's |where are )/g, '')
+            .replace(/(my |the |\?)/g, '')
+            .trim();
+          searchItem(term);
+          recognition.stop();
+        }
       };
+      alert('Speak now! Say: "Where are my keys?"');
       recognition.start();
     }
 
@@ -139,14 +177,19 @@
     }
 
     function searchItem(term) {
-      const results = items.filter(i => i.itemName.toLowerCase().includes(term.toLowerCase()));
+      // Fuzzy search - check partial matches
+      const results = items.filter(i => 
+        i.itemName.toLowerCase().includes(term.toLowerCase()) ||
+        i.location.toLowerCase().includes(term.toLowerCase())
+      );
+      
       if (results.length === 0) {
-        speak(`I don't have any record of ${term}`);
-        alert(`Not found: ${term}`);
+        speak(`I don't have any record of ${term}. Check your items list below.`);
+        alert(`Not found: ${term}\n\nTry checking the items list below, or make sure you logged it.`);
       } else {
         const item = results[0];
         speak(`Your ${item.itemName} is in ${item.location}`);
-        alert(`${item.itemName} is in ${item.location}`);
+        alert(`Found it!\n\n${item.itemName} is in ${item.location}`);
       }
     }
 
@@ -159,7 +202,7 @@
     function renderItems() {
       const list = document.getElementById('itemsList');
       if (items.length === 0) {
-        list.innerHTML = '<p style="color: #999; padding: 20px; text-align: center;">No items yet</p>';
+        list.innerHTML = '<p style="color: #999; padding: 20px; text-align: center;">No items yet. Click "Log Item" to start!</p>';
         return;
       }
       
@@ -167,7 +210,7 @@
         <div class="item">
           <div class="item-name">${item.itemName}</div>
           <div class="item-location">📍 ${item.location}</div>
-          <button onclick="deleteItem('${item.id}')" style="margin-top: 10px; padding: 5px 10px; background: #ef4444; color: white;">Delete</button>
+          <button onclick="deleteItem('${item.id}')" style="margin-top: 10px; padding: 5px 10px; background: #ef4444; color: white; border: none; border-radius: 6px; cursor: pointer;">Delete</button>
         </div>
       `).join('');
     }

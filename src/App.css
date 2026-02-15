@@ -109,6 +109,32 @@
   animation: wave 1.5s infinite;
 }
 
+.listening-indicator p {
+  margin: 10px 0;
+}
+
+.hint-text {
+  font-size: 0.9rem;
+  color: #666;
+  font-style: italic;
+}
+
+.btn-stop {
+  margin-top: 15px;
+  background: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 20px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-stop:hover {
+  background: #dc2626;
+}
+
 .transcript-box, .confirm-box, .search-result {
   background: white;
   border-radius: 12px;
@@ -388,6 +414,10 @@
   padding: 20px;
   font-size: 0.9rem;
   opacity: 0.9;
+}
+
+.footer p {
+  margin: 5px 0;
 }
 
 @keyframes pulse {

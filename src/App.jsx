@@ -12,7 +12,9 @@ function App() {
   const [editingId, setEditingId] = useState(null)
   const [editForm, setEditForm] = useState({ itemName: '', location: '' })
   const [error, setError] = useState('')
+  const [listeningTimer, setListeningTimer] = useState(0)
   const recognitionRef = useRef(null)
+  const timerRef = useRef(null)
 
   // Load items from localStorage on mount
   useEffect(() => {
@@ -32,19 +34,31 @@ function App() {
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
       recognitionRef.current = new SpeechRecognition()
-      recognitionRef.current.continuous = false
-      recognitionRef.current.interimResults = false
+      recognitionRef.current.continuous = true
+      recognitionRef.current.interimResults = true
       recognitionRef.current.lang = 'en-US'
+      recognitionRef.current.maxAlternatives = 3
 
       recognitionRef.current.onresult = (event) => {
-        const text = event.results[0][0].transcript
-        setTranscript(text)
-        setIsListening(false)
+        const results = event.results[event.results.length - 1]
+        const text = results[0].transcript
         
-        if (mode === 'log') {
-          handleLogParsing(text)
-        } else if (mode === 'find') {
-          handleFindParsing(text)
+        // Get alternatives for better accuracy
+        const alternatives = []
+        for (let i = 0; i < Math.min(results.length, 3); i++) {
+          alternatives.push(results[i].transcript)
+        }
+        
+        setTranscript(text)
+        
+        if (results.isFinal) {
+          setIsListening(false)
+          
+          if (mode === 'log') {
+            handleLogParsing(text, alternatives)
+          } else if (mode === 'find') {
+            handleFindParsing(text, alternatives)
+          }
         }
       }
 
@@ -56,21 +70,83 @@ function App() {
 
       recognitionRef.current.onend = () => {
         setIsListening(false)
+        setListeningTimer(0)
+        if (timerRef.current) {
+          clearInterval(timerRef.current)
+          timerRef.current = null
+        }
       }
     }
   }, [mode])
 
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current)
+      }
+    }
+  }, [])
+
+  // Common speech recognition corrections
+  const correctCommonErrors = (text) => {
+    const corrections = {
+      'draw': 'drawer',
+      'draws': 'drawers',
+      'saw': 'drawer', // Often mishears "drawer" as "saw"
+      'garage toolbox': 'garage toolbox',
+      'kitchen counter': 'kitchen counter',
+      'bedroom': 'bedroom',
+      'living room': 'living room',
+      'bathroom': 'bathroom',
+      'office': 'office',
+      'car': 'car',
+      'purse': 'purse',
+      'wallet': 'wallet',
+      'keys': 'keys',
+      'phone': 'phone',
+      'charger': 'charger',
+    }
+    
+    let corrected = text.toLowerCase()
+    
+    // Apply corrections
+    for (const [wrong, right] of Object.entries(corrections)) {
+      const regex = new RegExp(`\\b${wrong}\\b`, 'gi')
+      corrected = corrected.replace(regex, right)
+    }
+    
+    return corrected
+  }
+
   // Parse voice input for logging items
-  const handleLogParsing = (text) => {
-    const lowerText = text.toLowerCase()
+  const handleLogParsing = (text, alternatives = []) => {
+  // Parse voice input for logging items
+  const handleLogParsing = (text, alternatives = []) => {
+    // Apply common corrections
+    const correctedText = correctCommonErrors(text)
+    const lowerText = correctedText.toLowerCase()
     
-    // Remove common words
+    // Remove common conversational phrases
     const cleaned = lowerText
-      .replace(/^(i |i'm |i've |the |a |an )/g, '')
-      .replace(/(put |placed |left |kept |stored |saved )/g, '')
+      .replace(/^(i |i'm |i've |i just |i am |the |a |an |my |so |okay |ok |um |uh )/g, '')
+      .replace(/(put |placing |placed |placing |left |leaving |kept |keeping |stored |storing |saved |saving |dropped |dropping |threw |throwing )/g, '')
+      .replace(/(the |a |an |my |our |some )/g, '')
     
-    // Split by location indicators
-    const locationWords = [' in ', ' at ', ' on ', ' inside ', ' under ', ' behind ', ' near ']
+    // Split by location indicators - expanded list for natural speech
+    const locationWords = [
+      ' in the ', ' in my ', ' in ', 
+      ' at the ', ' at my ', ' at ',
+      ' on the ', ' on my ', ' on ',
+      ' inside the ', ' inside my ', ' inside ',
+      ' under the ', ' under my ', ' under ',
+      ' behind the ', ' behind my ', ' behind ',
+      ' near the ', ' near my ', ' near ',
+      ' by the ', ' by my ', ' by ',
+      ' next to the ', ' next to my ', ' next to ',
+      ' within the ', ' within my ', ' within '
+    ]
+    
     let item = cleaned
     let location = ''
     
@@ -90,8 +166,26 @@ function App() {
       location = parts[1].trim()
     }
     
+    // If still no location, try alternative transcriptions
+    if (!location && alternatives.length > 1) {
+      for (let i = 1; i < alternatives.length; i++) {
+        const altCorrected = correctCommonErrors(alternatives[i])
+        const altCleaned = altCorrected.toLowerCase()
+        
+        for (const word of locationWords) {
+          if (altCleaned.includes(word)) {
+            const parts = altCleaned.split(word)
+            item = parts[0].replace(/^(i |i'm |the |put |left )/g, '').trim()
+            location = parts.slice(1).join(word).trim()
+            break
+          }
+        }
+        if (location) break
+      }
+    }
+    
     if (!location) {
-      setError('Could not understand location. Please try: "Put [item] in [location]"')
+      setError('Could not understand location. Try: "Keys in the kitchen drawer" or "I put my phone on the counter"')
       setTimeout(() => setError(''), 5000)
       return
     }
@@ -101,27 +195,72 @@ function App() {
   }
 
   // Parse voice input for finding items
-  const handleFindParsing = (text) => {
-    const lowerText = text.toLowerCase()
+  const handleFindParsing = (text, alternatives = []) => {
+    // Apply corrections
+    const correctedText = correctCommonErrors(text)
+    const lowerText = correctedText.toLowerCase()
     
-    // Remove common question words
+    // Remove common question words - expanded for natural speech
     const searchTerm = lowerText
-      .replace(/^(where |where's |where is |find |locate |search )/g, '')
-      .replace(/(my |the |a |an |\?)/g, '')
+      .replace(/^(where |where's |where is |where are |wheres |find |locate |search |look for |looking for |do you know where |can you find )/g, '')
+      .replace(/(my |the |a |an |our |some |\?|is|are)/g, '')
       .trim()
     
-    searchForItem(searchTerm)
+    if (!searchTerm) {
+      setError('Could not understand what you\'re looking for. Try: "Where are my keys?"')
+      setTimeout(() => setError(''), 5000)
+      return
+    }
+    
+    searchForItem(searchTerm, alternatives)
   }
 
-  // Search for item
-  const searchForItem = (searchTerm) => {
-    const results = items.filter(item => 
-      item.itemName.toLowerCase().includes(searchTerm.toLowerCase())
+  // Search for item with fuzzy matching
+  const searchForItem = (searchTerm, alternatives = []) => {
+    // Try exact and partial matches
+    let results = items.filter(item => 
+      item.itemName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.location.toLowerCase().includes(searchTerm.toLowerCase())
     )
+    
+    // If no results, try alternatives
+    if (results.length === 0 && alternatives.length > 1) {
+      for (let i = 1; i < alternatives.length; i++) {
+        const altCorrected = correctCommonErrors(alternatives[i])
+        const altTerm = altCorrected
+          .toLowerCase()
+          .replace(/^(where |find |locate )/g, '')
+          .replace(/(my |the |\?)/g, '')
+          .trim()
+        
+        results = items.filter(item => 
+          item.itemName.toLowerCase().includes(altTerm.toLowerCase()) ||
+          item.location.toLowerCase().includes(altTerm.toLowerCase())
+        )
+        
+        if (results.length > 0) break
+      }
+    }
+    
+    // Try fuzzy matching if still no results
+    if (results.length === 0) {
+      results = items.filter(item => {
+        const itemWords = item.itemName.toLowerCase().split(' ')
+        const searchWords = searchTerm.toLowerCase().split(' ')
+        
+        return searchWords.some(searchWord => 
+          itemWords.some(itemWord => 
+            itemWord.startsWith(searchWord) || 
+            searchWord.startsWith(itemWord) ||
+            levenshteinDistance(itemWord, searchWord) <= 2
+          )
+        )
+      })
+    }
     
     if (results.length === 0) {
       setSearchResult({ found: false, term: searchTerm })
-      speak(`I don't have any record of ${searchTerm}`)
+      speak(`I don't have any record of ${searchTerm}. Try saying the exact item name, or check your items list below.`)
     } else if (results.length === 1) {
       const item = results[0]
       const daysSince = Math.floor((Date.now() - item.timestamp) / (1000 * 60 * 60 * 24))
@@ -131,8 +270,37 @@ function App() {
       speak(`Your ${item.itemName} is in ${item.location}.${timeWarning}`)
     } else {
       setSearchResult({ found: true, items: results })
-      speak(`I found ${results.length} items matching ${searchTerm}`)
+      speak(`I found ${results.length} items. Check the screen to see them all.`)
     }
+  }
+
+  // Simple Levenshtein distance for fuzzy matching
+  const levenshteinDistance = (str1, str2) => {
+    const matrix = []
+    
+    for (let i = 0; i <= str2.length; i++) {
+      matrix[i] = [i]
+    }
+    
+    for (let j = 0; j <= str1.length; j++) {
+      matrix[0][j] = j
+    }
+    
+    for (let i = 1; i <= str2.length; i++) {
+      for (let j = 1; j <= str1.length; j++) {
+        if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
+          matrix[i][j] = matrix[i - 1][j - 1]
+        } else {
+          matrix[i][j] = Math.min(
+            matrix[i - 1][j - 1] + 1,
+            matrix[i][j - 1] + 1,
+            matrix[i - 1][j] + 1
+          )
+        }
+      }
+    }
+    
+    return matrix[str2.length][str1.length]
   }
 
   // Text-to-speech
@@ -158,7 +326,33 @@ function App() {
     setSearchResult(null)
     setError('')
     setIsListening(true)
+    setListeningTimer(0)
+    
+    // Start timer countdown (10 seconds)
+    timerRef.current = setInterval(() => {
+      setListeningTimer(prev => {
+        if (prev >= 10) {
+          stopListening()
+          return 10
+        }
+        return prev + 1
+      })
+    }, 1000)
+    
     recognitionRef.current.start()
+  }
+
+  // Stop listening manually
+  const stopListening = () => {
+    if (recognitionRef.current && isListening) {
+      recognitionRef.current.stop()
+      setIsListening(false)
+      setListeningTimer(0)
+      if (timerRef.current) {
+        clearInterval(timerRef.current)
+        timerRef.current = null
+      }
+    }
   }
 
   // Confirm and save item
@@ -284,7 +478,11 @@ function App() {
         {isListening && (
           <div className="listening-indicator">
             <div className="wave"></div>
-            <p>Listening... Speak now</p>
+            <p>Listening... Speak now ({10 - listeningTimer}s remaining)</p>
+            <p className="hint-text">Say naturally: "I just put my keys in the kitchen drawer"</p>
+            <button className="btn-stop" onClick={stopListening}>
+              Stop Listening
+            </button>
           </div>
         )}
 
@@ -414,7 +612,9 @@ function App() {
         </div>
 
         <footer className="footer">
-          <p>Tip: Say "Put keys in drawer" or "Where are my keys?"</p>
+          <p><strong>💡 Speak naturally!</strong></p>
+          <p>Log: "I just put my keys in the kitchen drawer"</p>
+          <p>Find: "Where are my phone charger?"</p>
         </footer>
       </div>
     </div>
