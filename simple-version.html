@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FindIt - Simple Version</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .container { max-width: 600px; margin: 0 auto; }
+    .header { text-align: center; color: white; margin-bottom: 30px; }
+    .header h1 { font-size: 2.5rem; margin-bottom: 10px; }
+    .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 30px; }
+    button {
+      background: white;
+      border: none;
+      border-radius: 16px;
+      padding: 30px 20px;
+      font-size: 1.1rem;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+    }
+    button:hover { transform: translateY(-2px); }
+    .listening { background: #667eea; color: white; animation: pulse 1s infinite; }
+    .items { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); }
+    .item { background: #f9fafb; padding: 15px; margin: 10px 0; border-radius: 8px; border-left: 3px solid #10b981; }
+    .item-name { font-weight: 600; font-size: 1.1rem; }
+    .item-location { color: #666; margin-top: 5px; }
+    @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🔍 FindIt</h1>
+      <p>Simple Version - No Build Required</p>
+    </div>
+    
+    <div class="actions">
+      <button onclick="logItem()">📝 Log Item</button>
+      <button onclick="findItem()">🔍 Find Item</button>
+    </div>
+    
+    <div class="items" id="items">
+      <h2>Your Items</h2>
+      <div id="itemsList"></div>
+    </div>
+  </div>
+
+  <script>
+    let items = JSON.parse(localStorage.getItem('findit_items') || '[]');
+    let recognition = null;
+
+    // Initialize speech recognition
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      recognition = new SpeechRecognition();
+      recognition.lang = 'en-US';
+    }
+
+    function speak(text) {
+      if ('speechSynthesis' in window) {
+        const utterance = new SpeechSynthesisUtterance(text);
+        speechSynthesis.speak(utterance);
+      }
+    }
+
+    function parseLog(text) {
+      const lower = text.toLowerCase()
+        .replace(/^(i |i'm |the |put |placed |left )/g, '');
+      
+      const words = [' in ', ' at ', ' on '];
+      for (const word of words) {
+        if (lower.includes(word)) {
+          const parts = lower.split(word);
+          return { item: parts[0].trim(), location: parts[1].trim() };
+        }
+      }
+      return null;
+    }
+
+    function logItem() {
+      if (!recognition) {
+        const item = prompt('Item name:');
+        const location = prompt('Location:');
+        if (item && location) saveItem(item, location);
+        return;
+      }
+
+      recognition.onresult = (e) => {
+        const text = e.results[0][0].transcript;
+        const parsed = parseLog(text);
+        if (parsed) {
+          saveItem(parsed.item, parsed.location);
+          speak(`Saved ${parsed.item} in ${parsed.location}`);
+        } else {
+          alert('Could not understand. Try: "Put keys in drawer"');
+        }
+      };
+      recognition.start();
+    }
+
+    function findItem() {
+      if (!recognition) {
+        const term = prompt('What are you looking for?');
+        if (term) searchItem(term);
+        return;
+      }
+
+      recognition.onresult = (e) => {
+        const text = e.results[0][0].transcript
+          .toLowerCase()
+          .replace(/^(where |find |locate |where's )/g, '')
+          .replace(/(my |the |\?)/g, '')
+          .trim();
+        searchItem(text);
+      };
+      recognition.start();
+    }
+
+    function saveItem(itemName, location) {
+      const existing = items.findIndex(i => i.itemName.toLowerCase() === itemName.toLowerCase());
+      const newItem = { id: Date.now().toString(), itemName, location, timestamp: Date.now() };
+      
+      if (existing >= 0) {
+        items[existing] = newItem;
+      } else {
+        items.unshift(newItem);
+      }
+      
+      localStorage.setItem('findit_items', JSON.stringify(items));
+      renderItems();
+    }
+
+    function searchItem(term) {
+      const results = items.filter(i => i.itemName.toLowerCase().includes(term.toLowerCase()));
+      if (results.length === 0) {
+        speak(`I don't have any record of ${term}`);
+        alert(`Not found: ${term}`);
+      } else {
+        const item = results[0];
+        speak(`Your ${item.itemName} is in ${item.location}`);
+        alert(`${item.itemName} is in ${item.location}`);
+      }
+    }
+
+    function deleteItem(id) {
+      items = items.filter(i => i.id !== id);
+      localStorage.setItem('findit_items', JSON.stringify(items));
+      renderItems();
+    }
+
+    function renderItems() {
+      const list = document.getElementById('itemsList');
+      if (items.length === 0) {
+        list.innerHTML = '<p style="color: #999; padding: 20px; text-align: center;">No items yet</p>';
+        return;
+      }
+      
+      list.innerHTML = items.map(item => `
+        <div class="item">
+          <div class="item-name">${item.itemName}</div>
+          <div class="item-location">📍 ${item.location}</div>
+          <button onclick="deleteItem('${item.id}')" style="margin-top: 10px; padding: 5px 10px; background: #ef4444; color: white;">Delete</button>
+        </div>
+      `).join('');
+    }
+
+    renderItems();
+  </script>
+</body>
+</html>
