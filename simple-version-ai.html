@@ -1,27 +1,95 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>FindIt - AI Enhanced</title>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       min-height: 100vh;
       padding: 20px;
     }
-    .container { max-width: 600px; margin: 0 auto; }
-    .header { text-align: center; color: white; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
-    .header h1 { font-size: 2rem; }
-    .settings-btn { background: rgba(255,255,255,0.2); border: 2px solid rgba(255,255,255,0.3); color: white; font-size: 1.5rem; width: 45px; height: 45px; border-radius: 50%; cursor: pointer; }
-    .api-card { background: white; border-radius: 12px; padding: 15px; margin-bottom: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); }
-    .api-card input { width: 100%; padding: 10px; border: 2px solid #e5e7eb; border-radius: 8px; margin: 10px 0; font-family: monospace; }
-    .api-card button { padding: 8px 16px; border: none; border-radius: 8px; cursor: pointer; margin-right: 5px; }
-    .btn-save { background: #10b981; color: white; }
-    .btn-remove { background: #ef4444; color: white; }
-    .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 30px; }
+
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    .header {
+      text-align: center;
+      color: white;
+      margin-bottom: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .header h1 {
+      font-size: 2rem;
+    }
+
+    .settings-btn {
+      background: rgba(255, 255, 255, 0.2);
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      color: white;
+      font-size: 1.5rem;
+      width: 45px;
+      height: 45px;
+      border-radius: 50%;
+      cursor: pointer;
+    }
+
+    .api-card {
+      background: white;
+      border-radius: 12px;
+      padding: 15px;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    }
+
+    .api-card input {
+      width: 100%;
+      padding: 10px;
+      border: 2px solid #e5e7eb;
+      border-radius: 8px;
+      margin: 10px 0;
+      font-family: monospace;
+    }
+
+    .api-card button {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      margin-right: 5px;
+    }
+
+    .btn-save {
+      background: #10b981;
+      color: white;
+    }
+
+    .btn-remove {
+      background: #ef4444;
+      color: white;
+    }
+
+    .actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
+      margin-bottom: 30px;
+    }
+
     button {
       background: white;
       border: none;
@@ -30,16 +98,44 @@
       font-size: 1.1rem;
       font-weight: 600;
       cursor: pointer;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
     }
-    button:hover { transform: translateY(-2px); }
-    .items { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); }
-    .item { background: #f9fafb; padding: 15px; margin: 10px 0; border-radius: 8px; border-left: 3px solid #10b981; }
-    .item-name { font-weight: 600; font-size: 1.1rem; }
-    .item-location { color: #666; margin-top: 5px; }
-    .hidden { display: none; }
+
+    button:hover {
+      transform: translateY(-2px);
+    }
+
+    .items {
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    }
+
+    .item {
+      background: #f9fafb;
+      padding: 15px;
+      margin: 10px 0;
+      border-radius: 8px;
+      border-left: 3px solid #10b981;
+    }
+
+    .item-name {
+      font-weight: 600;
+      font-size: 1.1rem;
+    }
+
+    .item-location {
+      color: #666;
+      margin-top: 5px;
+    }
+
+    .hidden {
+      display: none;
+    }
   </style>
 </head>
+
 <body>
   <div class="container">
     <div class="header">
@@ -52,7 +148,8 @@
 
     <div id="apiCard" class="api-card hidden">
       <h3>🤖 AI Enhancement</h3>
-      <p style="font-size: 0.9rem; color: #666;">Add your free OpenRouter API key: <a href="https://openrouter.ai/keys" target="_blank">Get one here</a></p>
+      <p style="font-size: 0.9rem; color: #666;">Add your free OpenRouter API key: <a href="https://openrouter.ai/keys"
+          target="_blank">Get one here</a></p>
       <input type="password" id="apiKeyInput" placeholder="sk-or-v1-..." value="">
       <div>
         <button class="btn-save" onclick="saveApiKey()">Save</button>
@@ -60,12 +157,12 @@
       </div>
       <p style="font-size: 0.85rem; color: #999; margin-top: 10px;">💡 Uses FREE models. Your key stays local.</p>
     </div>
-    
+
     <div class="actions">
       <button onclick="logItem()">📝 Log Item</button>
       <button onclick="findItem()">🔍 Find Item</button>
     </div>
-    
+
     <div class="items" id="items">
       <h2>Your Items</h2>
       <div id="itemsList"></div>
@@ -110,14 +207,14 @@
       recognition.lang = 'en-US';
       recognition.continuous = true;
       recognition.interimResults = true;
-      
+
       recognition.onstart = () => {
         isListening = true;
         setTimeout(() => {
           if (isListening && recognition) recognition.stop();
         }, 10000);
       };
-      
+
       recognition.onend = () => {
         isListening = false;
       };
@@ -160,7 +257,7 @@
         const data = await response.json();
         const content = data.choices[0].message.content;
         const jsonMatch = content.match(/\{[^}]+\}/);
-        
+
         if (jsonMatch) {
           const result = JSON.parse(jsonMatch[0]);
           parseCache[cacheKey] = result;
@@ -169,7 +266,7 @@
       } catch (error) {
         console.error('AI parsing failed:', error);
       }
-      
+
       return null;
     }
 
@@ -187,7 +284,7 @@
       const lower = corrected.toLowerCase()
         .replace(/^(i |i'm |i just |the |put |placed |left |my )/g, '')
         .replace(/(the |a |an |my )/g, '');
-      
+
       const words = [' in the ', ' in my ', ' in ', ' at the ', ' at ', ' on the ', ' on '];
       for (const word of words) {
         if (lower.includes(word)) {
@@ -215,19 +312,32 @@
         return;
       }
 
+      let silenceTimeout = null;
+      let finalTranscript = '';
+
       recognition.onresult = async (e) => {
-        const results = e.results[e.results.length - 1];
-        if (results.isFinal) {
-          const text = results[0].transcript;
-          const parsed = await parseLog(text);
-          if (parsed) {
-            saveItem(parsed.item, parsed.location);
-            speak(`Saved ${parsed.item} in ${parsed.location}`);
-          } else {
-            alert('Could not understand. Try: "I put my keys in the drawer"');
+        if (silenceTimeout) clearTimeout(silenceTimeout);
+
+        finalTranscript = '';
+        for (let i = 0; i < e.results.length; i++) {
+          if (e.results[i].isFinal) {
+            finalTranscript += e.results[i][0].transcript + ' ';
           }
-          recognition.stop();
         }
+
+        // Wait 2 seconds after last speech
+        silenceTimeout = setTimeout(async () => {
+          if (finalTranscript.trim()) {
+            recognition.stop();
+            const parsed = await parseLog(finalTranscript.trim());
+            if (parsed) {
+              saveItem(parsed.item, parsed.location);
+              speak(`Saved ${parsed.item} in ${parsed.location}`);
+            } else {
+              alert('Could not understand. Try: "I put my keys in the drawer"');
+            }
+          }
+        }, 2000);
       };
       alert('Speak now! (10 seconds)\nSay naturally: "I just put my keys in the kitchen drawer"');
       recognition.start();
@@ -241,85 +351,92 @@
       }
 
       recognition.onresult = async (e) => {
-        const results = e.results[e.results.length - 1];
-        if (results.isFinal) {
-          const text = results[0].transcript;
-          const corrected = correctWords(text);
-          let term = corrected
-            .toLowerCase()
-            .replace(/^(where |find |locate |where's |where are )/g, '')
-            .replace(/(my |the |\?)/g, '')
-            .trim();
+        if (silenceTimeout) clearTimeout(silenceTimeout);
 
-          // Try AI if we have key
-          if (apiKey && term) {
-            const aiResult = await parseWithAI(text, 'find');
-            if (aiResult && aiResult.search) {
-              term = aiResult.search;
-            }
+        finalTranscript = '';
+        for (let i = 0; i < e.results.length; i++) {
+          if (e.results[i].isFinal) {
+            finalTranscript += e.results[i][0].transcript + ' ';
           }
-
-          searchItem(term);
-          recognition.stop();
         }
+
+        silenceTimeout = setTimeout(async () => {
+          if (finalTranscript.trim()) {
+            recognition.stop();
+            const text = finalTranscript.trim();
+            const corrected = correctWords(text);
+            let term = corrected
+              .toLowerCase()
+              .replace(/^(where |find |locate |where's |where are )/g, '')
+              .replace(/(my |the |\?)/g, '')
+              .trim();
+
+            if (apiKey && term) {
+              const aiResult = await parseWithAI(text, 'find');
+              if (aiResult && aiResult.search) {
+                term = aiResult.search;
+              }
+            }
+
+            searchItem(term);
+          }
+        }, 2000);
       };
-      alert('Speak now! (10 seconds)\nSay: "Where are my keys?"');
-      recognition.start();
-    }
 
-    function saveItem(itemName, location) {
-      const existing = items.findIndex(i => i.itemName.toLowerCase() === itemName.toLowerCase());
-      const newItem = { id: Date.now().toString(), itemName, location, timestamp: Date.now() };
-      
-      if (existing >= 0) {
-        items[existing] = newItem;
-      } else {
-        items.unshift(newItem);
+      function saveItem(itemName, location) {
+        const existing = items.findIndex(i => i.itemName.toLowerCase() === itemName.toLowerCase());
+        const newItem = { id: Date.now().toString(), itemName, location, timestamp: Date.now() };
+
+        if (existing >= 0) {
+          items[existing] = newItem;
+        } else {
+          items.unshift(newItem);
+        }
+
+        localStorage.setItem('findit_items', JSON.stringify(items));
+        renderItems();
       }
-      
-      localStorage.setItem('findit_items', JSON.stringify(items));
-      renderItems();
-    }
 
-    function searchItem(term) {
-      const results = items.filter(i => 
-        i.itemName.toLowerCase().includes(term.toLowerCase()) ||
-        i.location.toLowerCase().includes(term.toLowerCase())
-      );
-      
-      if (results.length === 0) {
-        speak(`I don't have any record of ${term}. Check your items list below.`);
-        alert(`Not found: ${term}\n\nTry checking the items list below, or make sure you logged it.`);
-      } else {
-        const item = results[0];
-        speak(`Your ${item.itemName} is in ${item.location}`);
-        alert(`Found it!\n\n${item.itemName} is in ${item.location}`);
+      function searchItem(term) {
+        const results = items.filter(i =>
+          i.itemName.toLowerCase().includes(term.toLowerCase()) ||
+          i.location.toLowerCase().includes(term.toLowerCase())
+        );
+
+        if (results.length === 0) {
+          speak(`I don't have any record of ${term}. Check your items list below.`);
+          alert(`Not found: ${term}\n\nTry checking the items list below, or make sure you logged it.`);
+        } else {
+          const item = results[0];
+          speak(`Your ${item.itemName} is in ${item.location}`);
+          alert(`Found it!\n\n${item.itemName} is in ${item.location}`);
+        }
       }
-    }
 
-    function deleteItem(id) {
-      items = items.filter(i => i.id !== id);
-      localStorage.setItem('findit_items', JSON.stringify(items));
-      renderItems();
-    }
-
-    function renderItems() {
-      const list = document.getElementById('itemsList');
-      if (items.length === 0) {
-        list.innerHTML = '<p style="color: #999; padding: 20px; text-align: center;">No items yet. Click "Log Item" to start!</p>';
-        return;
+      function deleteItem(id) {
+        items = items.filter(i => i.id !== id);
+        localStorage.setItem('findit_items', JSON.stringify(items));
+        renderItems();
       }
-      
-      list.innerHTML = items.map(item => `
+
+      function renderItems() {
+        const list = document.getElementById('itemsList');
+        if (items.length === 0) {
+          list.innerHTML = '<p style="color: #999; padding: 20px; text-align: center;">No items yet. Click "Log Item" to start!</p>';
+          return;
+        }
+
+        list.innerHTML = items.map(item => `
         <div class="item">
           <div class="item-name">${item.itemName}</div>
           <div class="item-location">📍 ${item.location}</div>
           <button onclick="deleteItem('${item.id}')" style="margin-top: 10px; padding: 5px 10px; background: #ef4444; color: white; border: none; border-radius: 6px; cursor: pointer;">Delete</button>
         </div>
       `).join('');
-    }
+      }
 
-    renderItems();
+      renderItems();
   </script>
 </body>
+
 </html>

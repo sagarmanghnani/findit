@@ -42,28 +42,54 @@ function App() {
       recognitionRef.current.lang = 'en-US'
       recognitionRef.current.maxAlternatives = 3
 
-      recognitionRef.current.onresult = (event) => {
-        const results = event.results[event.results.length - 1]
-        const text = results[0].transcript
+      // CRITICAL FIX: Prevent auto-stop on silence
+      let silenceTimeout = null
+      let finalTranscript = ''
 
-        // Get alternatives for better accuracy
-        const alternatives = []
-        for (let i = 0; i < Math.min(results.length, 3); i++) {
-          alternatives.push(results[i].transcript)
+      recognitionRef.current.onresult = (event) => {
+        // Clear any existing silence timeout
+        if (silenceTimeout) {
+          clearTimeout(silenceTimeout)
         }
 
-        setTranscript(text)
+        // Collect all results
+        let interimTranscript = ''
+        finalTranscript = ''
+        const alternatives = []
 
-        if (results.isFinal) {
-          setIsListening(false)
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const transcript = event.results[i][0].transcript
 
-          if (mode === 'log') {
-            handleLogParsing(text, alternatives)
-          } else if (mode === 'find') {
-            handleFindParsing(text, alternatives)
+          if (event.results[i].isFinal) {
+            finalTranscript += transcript + ' '
+
+            // Collect alternatives from final result
+            for (let j = 0; j < Math.min(event.results[i].length, 3); j++) {
+              alternatives.push(event.results[i][j].transcript)
+            }
+          } else {
+            interimTranscript += transcript
           }
         }
+
+        // Show current transcript (interim or final)
+        const displayText = finalTranscript || interimTranscript
+        setTranscript(displayText)
+
+        // Set timeout to process after 2 seconds of silence
+        silenceTimeout = setTimeout(() => {
+          if (finalTranscript.trim()) {
+            stopListening()
+
+            if (mode === 'log') {
+              handleLogParsing(finalTranscript.trim(), alternatives)
+            } else if (mode === 'find') {
+              handleFindParsing(finalTranscript.trim(), alternatives)
+            }
+          }
+        }, 2000) // Wait 2 seconds after last speech
       }
+
 
       recognitionRef.current.onerror = (event) => {
         setIsListening(false)
@@ -483,7 +509,11 @@ function App() {
   // Stop listening manually
   const stopListening = () => {
     if (recognitionRef.current && isListening) {
-      recognitionRef.current.stop()
+      try {
+        recognitionRef.current.stop()
+      } catch (e) {
+        // Already stopped
+      }
       setIsListening(false)
       setListeningTimer(0)
       if (timerRef.current) {
